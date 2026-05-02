@@ -1,0 +1,21 @@
+{
+  "name": "rememberme",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  
+  "scripts": {
+    "lint": "eslint src",
+    "dev": "ts-node-dev --respawn src/index.ts",
+    "prebuild": "rm -rf dist",
+    "build": "tsc",
+    "postbuild": "echo \"Finished build with size: $(du -sh dir | cut -f1)\"",
+    "prestart": "npm run build",
+    "start": "node dir/index.js"
+  },
+
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
