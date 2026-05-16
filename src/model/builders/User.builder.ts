@@ -1,5 +1,5 @@
 import { User, UserID, SubscriptionTier, UIMode } from "../user.model";
-import { roles } from "../config/roles";
+import { roles } from "../../config/roles";
 import logger from "../../util/logger";
 
 export class UserBuilder {

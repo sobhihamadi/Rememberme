@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { ID } from "../repository/IRepository";
 import { IChatMessage, IIdentifierChatMessage, ChatRole } from "./IChatMessage.model";
 import { VaultCategory, VaultItemType } from "./IVaultItem.model";
@@ -11,11 +12,11 @@ export class ChatMessage implements IChatMessage {
     private createdAt: Date;
 
     constructor(
-        userId: string, 
-        content: string, 
-        role: ChatRole, 
-        categoryContext: VaultCategory, 
-        typeContext: VaultItemType, 
+        userId: string,
+        content: string,
+        role: ChatRole,
+        categoryContext: VaultCategory,
+        typeContext: VaultItemType,
         createdAt: Date
     ) {
         this.userId = userId;
@@ -48,4 +49,31 @@ export class IdentifierChatMessage extends ChatMessage implements IIdentifierCha
     }
 
     getid(): ID { return this.id; }
+
+    /**
+     * Static factory — used by controllers to build a new message from raw
+     * request body data without repeating the long constructor call.
+     *
+     * Sensible defaults:
+     * - id        → crypto.randomUUID()
+     * - createdAt → now
+     */
+    static create(data: {
+        id?: string;
+        userId: string;
+        content: string;
+        role: ChatRole;
+        categoryContext?: VaultCategory;
+        typeContext?: VaultItemType;
+    }): IdentifierChatMessage {
+        return new IdentifierChatMessage(
+            data.id ?? crypto.randomUUID(),
+            data.userId,
+            data.content,
+            data.role,
+            data.categoryContext as VaultCategory,
+            data.typeContext as VaultItemType,
+            new Date()
+        );
+    }
 }
