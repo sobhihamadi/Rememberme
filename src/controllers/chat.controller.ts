@@ -7,16 +7,14 @@ import { BadRequestException } from "../util/exceptions/http/BadRequestException
 
 export class ChatController {
     constructor(private readonly chatService: ChatService) {
-        // Bind all methods so they keep the correct `this` when passed to Express
-        this.createMessage          = this.createMessage.bind(this);
-        this.getMessageById         = this.getMessageById.bind(this);
-        this.getChatContext         = this.getChatContext.bind(this);
-        this.getFormattedHistory    = this.getFormattedHistory.bind(this);
-        this.updateMessage          = this.updateMessage.bind(this);
-        this.deleteMessage          = this.deleteMessage.bind(this);
+        this.createMessage       = this.createMessage.bind(this);
+        this.getChatContext      = this.getChatContext.bind(this);
+        this.getFormattedHistory = this.getFormattedHistory.bind(this);
     }
 
     // ── POST /api/v1/chat ────────────────────────────────────────────────────
+    // Saves one turn of the conversation (either the user's message or
+    // the AI's response). The frontend calls this twice per exchange.
 
     public async createMessage(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
@@ -31,12 +29,12 @@ export class ChatController {
             }
 
             if (!Object.values(ChatRole).includes(role as ChatRole)) {
-                throw new BadRequestException(`Invalid role: ${role}. Must be one of: ${Object.values(ChatRole).join(", ")}`, {
-                    InvalidRole: true,
-                });
+                throw new BadRequestException(
+                    `Invalid role: ${role}. Must be one of: ${Object.values(ChatRole).join(", ")}`,
+                    { InvalidRole: true }
+                );
             }
 
-            // Use the static factory — no more "Property 'create' does not exist" error
             const message = IdentifierChatMessage.create({
                 userId,
                 content,
@@ -61,36 +59,9 @@ export class ChatController {
         }
     }
 
-    // ── GET /api/v1/chat/:id ─────────────────────────────────────────────────
-
-    public async getMessageById(req: Request, res: Response, next: NextFunction): Promise<void> {
-        try {
-            // req.params values are always strings in Express — cast is safe here
-            const id = req.params.id as string;
-
-            if (!id) {
-                throw new BadRequestException("Message ID is required", {
-                    MessageIdMissing: true,
-                });
-            }
-
-            const message = await this.chatService.getMessageById(id);
-
-            res.status(200).json({
-                id:              message.getid(),
-                userId:          message.getUserId(),
-                content:         message.getContent(),
-                role:            message.getRole(),
-                categoryContext: message.getCategoryContext(),
-                typeContext:     message.getTypeContext(),
-                createdAt:       message.getCreatedAt(),
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
-
     // ── GET /api/v1/chat?userId=&category=&type= ─────────────────────────────
+    // Loads the full ordered conversation for a vault context.
+    // The frontend calls this on mount to hydrate the chat window.
 
     public async getChatContext(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
@@ -125,6 +96,9 @@ export class ChatController {
     }
 
     // ── GET /api/v1/chat/formatted?userId=&category=&type= ───────────────────
+    // Returns the history already shaped for the Claude API messages array:
+    // [{ role: "user" | "assistant", content: string }, ...]
+    // The AI service layer calls this before building its API request.
 
     public async getFormattedHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
@@ -140,74 +114,13 @@ export class ChatController {
                 });
             }
 
-            const formatted = await this.chatService.constructSystemPromptAndHistory(userId, category, type);
+            const formatted = await this.chatService.constructSystemPromptAndHistory(
+                userId,
+                category,
+                type
+            );
 
             res.status(200).json(formatted);
-        } catch (error) {
-            next(error);
-        }
-    }
-
-    // ── PUT /api/v1/chat/:id ─────────────────────────────────────────────────
-
-    public async updateMessage(req: Request, res: Response, next: NextFunction): Promise<void> {
-        try {
-            const id = req.params.id as string;
-
-            if (!id) {
-                throw new BadRequestException("Message ID is required", {
-                    MessageIdMissing: true,
-                });
-            }
-
-            const { userId, content, role, categoryContext, typeContext } = req.body;
-
-            if (!userId || !content || !role) {
-                throw new BadRequestException("userId, content, and role are required", {
-                    UserIdMissing:  !userId,
-                    ContentMissing: !content,
-                    RoleMissing:    !role,
-                });
-            }
-
-            if (!Object.values(ChatRole).includes(role as ChatRole)) {
-                throw new BadRequestException(`Invalid role: ${role}`, {
-                    InvalidRole: true,
-                });
-            }
-
-            const message = IdentifierChatMessage.create({
-                id,
-                userId,
-                content,
-                role:            role            as ChatRole,
-                categoryContext: categoryContext as VaultCategory,
-                typeContext:     typeContext     as VaultItemType,
-            });
-
-            await this.chatService.updateMessage(message);
-
-            res.status(200).json({ message: "Chat message updated successfully" });
-        } catch (error) {
-            next(error);
-        }
-    }
-
-    // ── DELETE /api/v1/chat/:id ──────────────────────────────────────────────
-
-    public async deleteMessage(req: Request, res: Response, next: NextFunction): Promise<void> {
-        try {
-            const id = req.params.id as string;
-
-            if (!id) {
-                throw new BadRequestException("Message ID is required", {
-                    MessageIdMissing: true,
-                });
-            }
-
-            await this.chatService.deleteMessage(id);
-
-            res.status(200).json({ message: "Chat message deleted successfully" });
         } catch (error) {
             next(error);
         }

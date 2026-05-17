@@ -3,7 +3,8 @@
 import { IdentifierChatMessage } from "../../src/model/ChatMessage.model";
 import { ChatRole } from "../../src/model/IChatMessage.model";
 import { VaultCategory, VaultItemType } from "../../src/model/IVaultItem.model";
-import { IChatRepository, ChatService } from "../../src/services/chat.service";
+import {  ChatService } from "../../src/services/chat.service";
+import { IChatRepository } from "../../src/repository/Ichatrepository";
 import { BadRequestException } from "../../src/util/exceptions/http/BadRequestExceptions";
 import { NotFoundException } from "../../src/util/exceptions/http/NotFoundException";
 
@@ -50,7 +51,7 @@ describe("ChatService", () => {
             update: jest.fn(),
             delete: jest.fn(),
             getHistory: jest.fn(),
-        } as jest.Mocked<IChatRepository>;
+        } as unknown as jest.Mocked<IChatRepository>;
 
         chatService = new ChatService(chatRepositoryMock);
     });
@@ -136,114 +137,20 @@ describe("ChatService", () => {
 
     // ── getMessageById ────────────────────────────────────────────────────────
 
-    describe("getMessageById", () => {
-        it("should return the message when found", async () => {
-            const message = buildMockChatMessage();
-            chatRepositoryMock.get.mockResolvedValue(message as any);
-
-            const result = await chatService.getMessageById("msg-1");
-
-            expect(chatRepositoryMock.get).toHaveBeenCalledWith("msg-1");
-            expect(chatRepositoryMock.get).toHaveBeenCalledTimes(1);
-            expect(result).toBe(message);
-        });
-
-        it("should throw NotFoundException when message does not exist", async () => {
-            chatRepositoryMock.get.mockResolvedValue(null as any);
-
-            await expect(chatService.getMessageById("non-existent-id"))
-                .rejects
-                .toThrow(NotFoundException);
-
-            expect(chatRepositoryMock.get).toHaveBeenCalledWith("non-existent-id");
-        });
-    });
+   
 
     // ── updateMessage ─────────────────────────────────────────────────────────
 
-    describe("updateMessage", () => {
-        it("should update the message successfully when it exists", async () => {
-            const message = buildMockChatMessage();
-            chatRepositoryMock.get.mockResolvedValue(message as any);
-            chatRepositoryMock.update.mockResolvedValue(undefined as any);
-
-            await chatService.updateMessage(message);
-
-            expect(chatRepositoryMock.get).toHaveBeenCalledWith(message.getid());
-            expect(chatRepositoryMock.update).toHaveBeenCalledWith(message);
-            expect(chatRepositoryMock.update).toHaveBeenCalledTimes(1);
+   
         });
 
-        it("should throw NotFoundException when updating a non-existent message", async () => {
-            const message = buildMockChatMessage();
-            chatRepositoryMock.get.mockResolvedValue(null as any);
+        
 
-            await expect(chatService.updateMessage(message))
-                .rejects
-                .toThrow(NotFoundException);
-
-            expect(chatRepositoryMock.update).not.toHaveBeenCalled();
-        });
-
-        it("should throw BadRequestException when userId is missing on update", async () => {
-            const message = buildMockChatMessage({ userId: "" });
-
-            await expect(chatService.updateMessage(message))
-                .rejects
-                .toThrow(BadRequestException);
-
-            expect(chatRepositoryMock.get).not.toHaveBeenCalled();
-            expect(chatRepositoryMock.update).not.toHaveBeenCalled();
-        });
-
-        it("should throw BadRequestException when content is missing on update", async () => {
-            const message = buildMockChatMessage({ content: "" });
-
-            await expect(chatService.updateMessage(message))
-                .rejects
-                .toThrow(BadRequestException);
-
-            expect(chatRepositoryMock.get).not.toHaveBeenCalled();
-            expect(chatRepositoryMock.update).not.toHaveBeenCalled();
-        });
-
-        it("should throw BadRequestException when role is invalid on update", async () => {
-            const message = buildMockChatMessage({ role: "UNKNOWN" as any });
-
-            await expect(chatService.updateMessage(message))
-                .rejects
-                .toThrow(BadRequestException);
-
-            expect(chatRepositoryMock.get).not.toHaveBeenCalled();
-            expect(chatRepositoryMock.update).not.toHaveBeenCalled();
-        });
-    });
+    
 
     // ── deleteMessage ─────────────────────────────────────────────────────────
 
-    describe("deleteMessage", () => {
-        it("should delete the message when it exists", async () => {
-            const message = buildMockChatMessage();
-            chatRepositoryMock.get.mockResolvedValue(message as any);
-            chatRepositoryMock.delete.mockResolvedValue(undefined as any);
-
-            await chatService.deleteMessage("msg-1");
-
-            expect(chatRepositoryMock.get).toHaveBeenCalledWith("msg-1");
-            expect(chatRepositoryMock.delete).toHaveBeenCalledWith("msg-1");
-            expect(chatRepositoryMock.delete).toHaveBeenCalledTimes(1);
-        });
-
-        it("should throw NotFoundException when deleting a non-existent message", async () => {
-            chatRepositoryMock.get.mockResolvedValue(null as any);
-
-            await expect(chatService.deleteMessage("ghost-id"))
-                .rejects
-                .toThrow(NotFoundException);
-
-            expect(chatRepositoryMock.delete).not.toHaveBeenCalled();
-        });
-    });
+   
 
     // ── getChatContext ────────────────────────────────────────────────────────
 
@@ -399,4 +306,3 @@ describe("ChatService", () => {
             expect(chatRepositoryMock.getHistory).not.toHaveBeenCalled();
         });
     });
-});

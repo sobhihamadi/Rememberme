@@ -2,31 +2,43 @@ import dotenv from "dotenv";
 import path from "path";
 import type { StringValue } from "ms";
 
-
-dotenv.config({ path: path.join(__dirname, '../../.env') });
+dotenv.config({ path: path.join(__dirname, "../../.env") });
 
 export default {
-  encryption: {
-    secretKey: process.env.ENCRYPTION_SECRET
-  },
-  NODE_ENV: process.env.NODE_ENV || 'development',
-  SECRET: process.env.SECRET,
-  logDir: 'logs', // Specifies the folder where log files will be saved.
-   isDev: process.env.NODE_ENV==="development", // Check if the environment is development
-  isProduction:process.env.NODE_ENV==="production",
+  NODE_ENV:     process.env.NODE_ENV || "development",
+  isDev:        process.env.NODE_ENV === "development",
+  isProduction: process.env.NODE_ENV === "production",
+
+  port: parseInt(process.env.PORT || "3000", 10),
+
+  logDir: "logs",
+
   storagePath: {
     postgres: {
-      url: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_xaEb1hD8dLkW@ep-mute-thunder-alspdx7x-pooler.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
+      // WARNING: never commit a real connection string as a fallback in production.
+      // The fallback here is only for local development convenience.
+      // In production (DigitalOcean + PM2), DATABASE_URL must be set in the .env file.
+      url:
+        process.env.DATABASE_URL ||
+        "postgresql://neondb_owner:npg_xaEb1hD8dLkW@ep-mute-thunder-alspdx7x-pooler.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
     },
   },
-  auth:
-{
-  tokenExpiry: (process.env.TOKEN_EXPIRY || '15m') as StringValue, // Token expiry duration
-  secretkey: process.env.JWT_SECRET_KEY || 'secret-111222242421',// Secret key for authentication
-  tokenrefrechExpiry: (process.env.TOKEN_REFRECH_EXPIRY || '7d') as StringValue
-}
 
+  auth: {
+    secretkey:           process.env.JWT_SECRET_KEY    || "secret-111222242421",
+    tokenExpiry:        (process.env.TOKEN_EXPIRY       || "15m") as StringValue,
+    tokenrefrechExpiry: (process.env.TOKEN_REFRECH_EXPIRY || "7d") as StringValue,
+  },
+
+  encryption: {
+    // Used by VaultService for AES-256-CBC encryption of vault item content.
+    // Must be exactly 32 bytes when decoded. Generate with:
+    //   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+    secretKey: process.env.ENCRYPTION_SECRET || "",
+  },
+
+  // Used by the AI service to call the gemini API (Gemini).
+  gemini: {
+    apiKey: process.env.GEMINI_API_KEY || "",
+  },
 };
-
-
-  
