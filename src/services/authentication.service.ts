@@ -89,13 +89,22 @@ export class AuthenticationService {
   }
 
   // ✅ Fix — strip exp and iat before generating new token
+// ✅ Fix — unwrap the nested payload before generating new token
 refreshToken(refrechtoken: string): string {
-    const TokenPayload = this.verifyToken(refrechtoken);
-    if (!TokenPayload) {
+    const decoded = this.verifyToken(refrechtoken) as any;
+    if (!decoded) {
         throw new InvalidTokenException();
     }
-    // Remove JWT metadata fields — generatetoken will add fresh ones
-    const { exp, iat, ...cleanPayload } = TokenPayload as any;
+
+    // generaterefrechtoken wraps as { payload: {...} }
+    // so decoded is { payload: { userId, role }, exp, iat }
+    const cleanPayload: userPayload = decoded.payload ?? decoded;
+
+    // Validate the unwrapped payload has what we need
+    if (!cleanPayload.userId || !cleanPayload.role) {
+        throw new InvalidTokenException();
+    }
+
     return this.generatetoken(cleanPayload);
 }
 }
