@@ -3,15 +3,25 @@ import * as jwt from "jsonwebtoken";
 import ms from "ms";
 import config from "../config";
 import { userPayload } from "../config/db_mode";
-import { ExpiredTokenException, InvalidTokenException } from "../util/exceptions/http/AuthenticationException";
+import {
+  ExpiredTokenException,
+  InvalidTokenException,
+} from "../util/exceptions/http/AuthenticationException";
 import { serviceexception } from "../util/exceptions/http/ServiceException";
+
+// Single source of truth for the cookie name — referenced in every method
+// so a future rename only requires changing this one constant.
+const REFRESH_COOKIE_NAME = "refreshToken";
+const ACCESS_COOKIE_NAME  = "token";
 
 export class AuthenticationService {
   constructor(
-    private secretkey = config.auth.secretkey,
-    private tokenExpiry = config.auth.tokenExpiry,
-    private tokenrefrechExpiry = config.auth.tokenrefrechExpiry
+    private secretkey           = config.auth.secretkey,
+    private tokenExpiry         = config.auth.tokenExpiry,
+    private tokenRefreshExpiry  = config.auth.tokenrefrechExpiry
   ) {}
+
+  // ── Token generation ────────────────────────────────────────────────────────
 
   generatetoken(payload: userPayload): string {
     return jwt.sign(payload, this.secretkey, {
@@ -19,59 +29,73 @@ export class AuthenticationService {
     });
   }
 
-  generaterefrechtoken(payload: userPayload): string {
+  generateRefreshToken(payload: userPayload): string {
     return jwt.sign({ payload }, this.secretkey, {
-      expiresIn: this.tokenrefrechExpiry,
+      expiresIn: this.tokenRefreshExpiry,
     });
   }
+
+  // ── Token verification ──────────────────────────────────────────────────────
 
   verifyToken(token: string): userPayload {
     try {
       return jwt.verify(token, this.secretkey) as userPayload;
     } catch (error) {
-      if (error instanceof jwt.TokenExpiredError) {
-        throw new ExpiredTokenException();
-      }
-      if (error instanceof jwt.JsonWebTokenError) {
-        throw new InvalidTokenException();
-      }
+      if (error instanceof jwt.TokenExpiredError) throw new ExpiredTokenException();
+      if (error instanceof jwt.JsonWebTokenError)  throw new InvalidTokenException();
       throw new serviceexception("Token verification failed");
     }
   }
 
-  SetTokenIntoCookie(res: Response, token: string) {
-    res.cookie("token", token, {
+  // ── Cookie helpers ──────────────────────────────────────────────────────────
+
+  SetTokenIntoCookie(res: Response, token: string): void {
+    res.cookie(ACCESS_COOKIE_NAME, token, {
       httpOnly: true,
-      secure: config.isProduction,
-      maxAge: ms(this.tokenExpiry),
+      secure:   config.isProduction,
+      sameSite: "strict",
+      maxAge:   ms(this.tokenExpiry),
     });
   }
 
-  SetrefrechtokenIntoCookie(res: Response, reftoken: string) {
-    res.cookie("refrechToken", reftoken, {
+  SetRefreshTokenIntoCookie(res: Response, refreshToken: string): void {
+    res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
       httpOnly: true,
-      secure: config.isProduction,
-      maxAge: ms(this.tokenrefrechExpiry),
+      secure:   config.isProduction,
+      sameSite: "strict",
+      maxAge:   ms(this.tokenRefreshExpiry),
     });
   }
 
-  clearToken(res: Response) {
-    res.clearCookie("token");
-    res.clearCookie("refreshToken");
+  /**
+   * Clears BOTH cookies.
+   * Previously "refrechToken" was used during set but "refreshToken" during
+   * clear — meaning logout never actually removed the refresh cookie.
+   * Both now use the REFRESH_COOKIE_NAME constant.
+   */
+  clearToken(res: Response): void {
+    res.clearCookie(ACCESS_COOKIE_NAME);
+    res.clearCookie(REFRESH_COOKIE_NAME);
   }
 
-  PersistAuthentication(res: Response, tokenpayload: userPayload) {
-    const token = this.generatetoken(tokenpayload);
-    this.SetTokenIntoCookie(res, token);
-    const refrechtoken = this.generaterefrechtoken(tokenpayload);
-    this.SetrefrechtokenIntoCookie(res, refrechtoken);
+  // ── Combined helpers ────────────────────────────────────────────────────────
+
+  PersistAuthentication(res: Response, payload: userPayload): void {
+    const accessToken  = this.generatetoken(payload);
+    const refreshToken = this.generateRefreshToken(payload);
+
+    this.SetTokenIntoCookie(res, accessToken);
+    this.SetRefreshTokenIntoCookie(res, refreshToken);
   }
 
-  refreshToken(refrechtoken: string): string {
+  // ✅ Fix — strip exp and iat before generating new token
+refreshToken(refrechtoken: string): string {
     const TokenPayload = this.verifyToken(refrechtoken);
     if (!TokenPayload) {
-      throw new InvalidTokenException();
+        throw new InvalidTokenException();
     }
-    return this.generatetoken(TokenPayload);
-  }
+    // Remove JWT metadata fields — generatetoken will add fresh ones
+    const { exp, iat, ...cleanPayload } = TokenPayload as any;
+    return this.generatetoken(cleanPayload);
+}
 }

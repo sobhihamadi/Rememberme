@@ -17,7 +17,9 @@ export interface IVaultRepository extends IRepository<identifierVaultItem> {
 export class VaultService {
     private readonly algorithm = "aes-256-cbc";
     // Uses a defined secret or generates a fallback (fallback not recommended for production persistence)
-    private readonly secretKey = config.encryption?.secretKey || crypto.randomBytes(32); 
+    private readonly secretKey: Buffer = config.encryption.secretKey
+    ? Buffer.from(config.encryption.secretKey, "hex")
+    : crypto.randomBytes(32);
 
     constructor(private readonly vaultRepository: IVaultRepository) {}
 
@@ -123,7 +125,7 @@ export class VaultService {
      */
     private encryptItemContent(item: identifierVaultItem): void {
         const iv = crypto.randomBytes(16);
-        const cipher = crypto.createCipheriv(this.algorithm, Buffer.from(this.secretKey), iv);
+const cipher = crypto.createCipheriv(this.algorithm, this.secretKey, iv);
         
         let encrypted = cipher.update(item.getContent(), "utf8", "hex");
         encrypted += cipher.final("hex");
@@ -140,7 +142,7 @@ export class VaultService {
     private decryptItemContent(item: identifierVaultItem): void {
         try {
             const iv = Buffer.from(item.getEncryptionIv(), "hex");
-            const decipher = crypto.createDecipheriv(this.algorithm, Buffer.from(this.secretKey), iv);
+const decipher = crypto.createDecipheriv(this.algorithm, this.secretKey, iv);
             
             let decrypted = decipher.update(item.getEncryptedValue(), "hex", "utf8");
             decrypted += decipher.final("utf8");
