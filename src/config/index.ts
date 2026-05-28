@@ -19,9 +19,7 @@ export default {
       // The fallback here is only for local development convenience.
       // In production (DigitalOcean + PM2), DATABASE_URL must be set in the .env file.
       url:
-        process.env.DATABASE_URL ||
-        "postgresql://neondb_owner:npg_xaEb1hD8dLkW@ep-mute-thunder-alspdx7x-pooler.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
-    },
+        process.env.DATABASE_URL ||""    },
   },
 
   auth: {

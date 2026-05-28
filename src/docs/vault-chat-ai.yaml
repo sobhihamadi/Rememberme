@@ -1,0 +1,839 @@
+openapi: 3.0.3
+info:
+  title: VaultMind — Vault, Chat & AI API
+  description: |
+    Secure vault item storage, conversation history, and AI assistant endpoints
+    for the VaultMind platform.
+
+    **All endpoints require a valid `token` httpOnly cookie** obtained from
+    `POST /auth/login`. The middleware silently rotates expired access tokens
+    using the `refreshToken` cookie if it is still valid.
+
+    ---
+
+    ### Vault concepts
+    | Field | Values |
+    |-------|--------|
+    | `category` | `PERSONAL` · `WORK` · `NOTES` |
+    | `type` | `PASSWORD` · `CODE` · `COMMAND` · `NOTE` |
+
+    Content is **AES-256-CBC encrypted** at rest. The API always returns
+    decrypted `content` to authenticated owners; the raw `encryptedValue` and
+    `encryptionIv` fields are never exposed.
+
+    ---
+
+    ### AI chat flow
+    1. Frontend calls `POST /ai/ask` with `action: "save"` or `action: "retrieve"`.
+    2. The service loads existing vault items + conversation history for the given context.
+    3. It calls the Gemini model with a system prompt tailored to the action.
+    4. The model returns structured JSON with an `intent` (`save` / `retrieve` / `update` / `delete` / `other`).
+    5. The service executes the intent (e.g. writes to vault), persists both turns, and returns the human-readable reply.
+
+    Chat turns are stored per `(userId, category, type)` context so each vault
+    context has its own independent conversation thread.
+  version: "1.0.0"
+  contact:
+    name: VaultMind API
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development
+
+tags:
+  - name: Vault
+    description: Encrypted vault item CRUD
+  - name: Chat
+    description: Conversation history for a vault context
+  - name: AI
+    description: AI assistant — natural-language vault interaction
+
+# ── Security ──────────────────────────────────────────────────────────────────
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: token
+      description: httpOnly JWT access cookie set by POST /auth/login
+
+  # ── Reusable schemas ────────────────────────────────────────────────────────
+  schemas:
+
+    # ── Enums ────────────────────────────────────────────────────────────────
+    VaultCategory:
+      type: string
+      enum: [PERSONAL, WORK, NOTES]
+      description: The broad category the vault item belongs to.
+
+    VaultItemType:
+      type: string
+      enum: [PASSWORD, CODE, COMMAND, NOTE]
+      description: The kind of data stored inside the vault item.
+
+    ChatRole:
+      type: string
+      enum: [USER, AI]
+      description: Who authored the message.
+
+    VaultAction:
+      type: string
+      enum: [save, retrieve]
+      description: |
+        The user's intention when calling the AI.
+        - `save` — user wants to store something new ("New Vault" button)
+        - `retrieve` — user wants to query or manage existing items ("My Vault" button)
+
+    # ── Error ────────────────────────────────────────────────────────────────
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Bad Request Exception
+        message:
+          type: string
+          example: userId, label, category, and type are required
+        details:
+          type: object
+          additionalProperties: true
+          example:
+            LabelMissing: true
+
+    # ── Vault Item (read) ─────────────────────────────────────────────────────
+    VaultItemResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
+        userId:
+          type: string
+          example: user-1716048000000
+        label:
+          type: string
+          example: Netflix Password
+        category:
+          $ref: '#/components/schemas/VaultCategory'
+        type:
+          $ref: '#/components/schemas/VaultItemType'
+        content:
+          type: string
+          description: Decrypted content. Empty string if no content was stored.
+          example: "Sup3rS3cret!"
+        tags:
+          type: array
+          items:
+            type: string
+          example: [entertainment, streaming]
+        accessCount:
+          type: integer
+          example: 3
+        lastAccessed:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-05-10T14:30:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-05-10T14:30:00.000Z"
+
+    # ── Vault Item (create / update body) ────────────────────────────────────
+    VaultItemRequest:
+      type: object
+      required: [userId, label, category, type]
+      properties:
+        userId:
+          type: string
+          example: user-1716048000000
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Netflix Password
+        category:
+          $ref: '#/components/schemas/VaultCategory'
+        type:
+          $ref: '#/components/schemas/VaultItemType'
+        content:
+          type: string
+          description: Plain-text content; the server encrypts it before persisting.
+          example: "Sup3rS3cret!"
+        tags:
+          type: array
+          items:
+            type: string
+          example: [entertainment]
+
+    # ── Vault Item (created — minimal response) ───────────────────────────────
+    VaultItemCreatedResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
+        userId:
+          type: string
+          example: user-1716048000000
+        label:
+          type: string
+          example: Netflix Password
+        category:
+          $ref: '#/components/schemas/VaultCategory'
+        type:
+          $ref: '#/components/schemas/VaultItemType'
+
+    # ── Chat Message (read) ───────────────────────────────────────────────────
+    ChatMessageResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        userId:
+          type: string
+          example: user-1716048000000
+        content:
+          type: string
+          example: Save my Netflix password, it's Sup3rS3cret!
+        role:
+          $ref: '#/components/schemas/ChatRole'
+        categoryContext:
+          $ref: '#/components/schemas/VaultCategory'
+        typeContext:
+          $ref: '#/components/schemas/VaultItemType'
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-05-14T10:00:00.000Z"
+
+    # ── Chat Message (create body) ────────────────────────────────────────────
+    ChatMessageRequest:
+      type: object
+      required: [userId, content, role]
+      properties:
+        userId:
+          type: string
+          example: user-1716048000000
+        content:
+          type: string
+          minLength: 1
+          example: Save my Netflix password, it's Sup3rS3cret!
+        role:
+          $ref: '#/components/schemas/ChatRole'
+        categoryContext:
+          $ref: '#/components/schemas/VaultCategory'
+        typeContext:
+          $ref: '#/components/schemas/VaultItemType'
+
+    # ── Formatted history item (for AI context) ───────────────────────────────
+    FormattedHistoryItem:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+          description: Mapped from ChatRole (USER → user, AI → assistant) for direct use in LLM APIs.
+        content:
+          type: string
+          example: Save my Netflix password, it's Sup3rS3cret!
+
+    # ── AI ask request ────────────────────────────────────────────────────────
+    AiAskRequest:
+      type: object
+      required: [userId, category, type, action, message]
+      properties:
+        userId:
+          type: string
+          example: user-1716048000000
+        category:
+          $ref: '#/components/schemas/VaultCategory'
+        type:
+          $ref: '#/components/schemas/VaultItemType'
+        action:
+          $ref: '#/components/schemas/VaultAction'
+        message:
+          type: string
+          minLength: 1
+          description: The natural-language message from the user.
+          example: "Save my Netflix password, it's Sup3rS3cret!"
+
+    # ── AI ask response ───────────────────────────────────────────────────────
+    AiAskResponse:
+      type: object
+      properties:
+        reply:
+          type: string
+          description: Human-readable reply from the AI assistant.
+          example: "Done! I've securely saved your Netflix Password."
+
+  # ── Reusable responses ──────────────────────────────────────────────────────
+  responses:
+    Unauthorized:
+      description: Missing or invalid access token cookie.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: AuthenticationFailedExpcetion
+            message: Authentication Failed.
+
+    Forbidden:
+      description: Authenticated but insufficient permissions.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: InsufficientPermissionException
+            message: You do not have permission to perform this action.
+
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Not Found Exception
+            message: Vault item with id xxx not found
+
+    BadRequest:
+      description: Validation error — missing or invalid request fields.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+# ── Global security ────────────────────────────────────────────────────────────
+security:
+  - cookieAuth: []
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+paths:
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # VAULT
+  # ════════════════════════════════════════════════════════════════════════════
+
+  /vault:
+    post:
+      tags: [Vault]
+      summary: Create a vault item
+      description: |
+        Saves a new encrypted vault item.
+        - `content` is AES-256-CBC encrypted before storage.
+        - After encryption the plain-text is cleared so it never reaches the DB.
+        - `tags` defaults to `[]` if omitted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VaultItemRequest'
+            examples:
+              password:
+                summary: Store a password
+                value:
+                  userId: user-1716048000000
+                  label: Netflix Password
+                  category: PERSONAL
+                  type: PASSWORD
+                  content: "Sup3rS3cret!"
+                  tags: [entertainment]
+              command:
+                summary: Store a CLI command
+                value:
+                  userId: user-1716048000000
+                  label: Docker Prune Command
+                  category: WORK
+                  type: COMMAND
+                  content: "docker system prune -af --volumes"
+                  tags: [docker, devops]
+              noContent:
+                summary: Item without content (label only)
+                value:
+                  userId: user-1716048000000
+                  label: My SSH Key
+                  category: WORK
+                  type: PASSWORD
+      responses:
+        "201":
+          description: Vault item created. Returns the minimal identifying fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VaultItemCreatedResponse'
+              example:
+                id: 550e8400-e29b-41d4-a716-446655440000
+                userId: user-1716048000000
+                label: Netflix Password
+                category: PERSONAL
+                type: PASSWORD
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+    get:
+      tags: [Vault]
+      summary: List vault items by context
+      description: |
+        Returns all vault items for a specific `(userId, category, type)` context,
+        ordered by `updatedAt` descending (most recently updated first).
+        All `content` fields are **decrypted** before returning.
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+          example: user-1716048000000
+        - name: category
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/VaultCategory'
+          example: PERSONAL
+        - name: type
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/VaultItemType'
+          example: PASSWORD
+      responses:
+        "200":
+          description: Array of decrypted vault items (may be empty).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VaultItemResponse'
+              example:
+                - id: 550e8400-e29b-41d4-a716-446655440000
+                  userId: user-1716048000000
+                  label: Netflix Password
+                  category: PERSONAL
+                  type: PASSWORD
+                  content: "Sup3rS3cret!"
+                  tags: [entertainment]
+                  accessCount: 2
+                  lastAccessed: "2026-05-10T14:30:00.000Z"
+                  updatedAt: "2026-05-10T14:30:00.000Z"
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+  /vault/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: UUID of the vault item.
+        schema:
+          type: string
+          format: uuid
+        example: 550e8400-e29b-41d4-a716-446655440000
+
+    get:
+      tags: [Vault]
+      summary: Get a single vault item
+      description: Fetches and decrypts a single vault item by its UUID.
+      responses:
+        "200":
+          description: Decrypted vault item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VaultItemResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Vault]
+      summary: Update a vault item
+      description: |
+        Replaces a vault item's fields and re-encrypts `content` if provided.
+        All required body fields must be re-submitted (full replacement, not patch).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VaultItemRequest'
+            example:
+              userId: user-1716048000000
+              label: Netflix Password
+              category: PERSONAL
+              type: PASSWORD
+              content: "Upd4t3dP4ss!"
+              tags: [entertainment, updated]
+      responses:
+        "200":
+          description: Vault item updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Vault item updated successfully
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Vault]
+      summary: Delete a vault item
+      description: Permanently removes the vault item from the database.
+      responses:
+        "200":
+          description: Vault item deleted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Vault item deleted successfully
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # CHAT
+  # ════════════════════════════════════════════════════════════════════════════
+
+  /chat:
+    post:
+      tags: [Chat]
+      summary: Save a chat message
+      description: |
+        Appends one turn (user or AI message) to the conversation log for a
+        `(userId, category, type)` context.
+
+        **The frontend calls this endpoint twice per AI exchange:**
+        1. Once after the user submits their message (`role: USER`).
+        2. Once after receiving the AI reply (`role: AI`).
+
+        *Note: when using `POST /ai/ask`, both turns are persisted automatically
+        — you do not need to call this endpoint manually.*
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageRequest'
+            examples:
+              userTurn:
+                summary: User message
+                value:
+                  userId: user-1716048000000
+                  content: "Save my Netflix password, it's Sup3rS3cret!"
+                  role: USER
+                  categoryContext: PERSONAL
+                  typeContext: PASSWORD
+              aiTurn:
+                summary: AI reply
+                value:
+                  userId: user-1716048000000
+                  content: "Done! I've securely saved your Netflix Password."
+                  role: AI
+                  categoryContext: PERSONAL
+                  typeContext: PASSWORD
+      responses:
+        "201":
+          description: Message saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessageResponse'
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+    get:
+      tags: [Chat]
+      summary: Get conversation history for a context
+      description: |
+        Returns the full ordered conversation (oldest → newest) for a
+        `(userId, category, type)` context. Called on mount to hydrate
+        the chat window.
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+          example: user-1716048000000
+        - name: category
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/VaultCategory'
+          example: PERSONAL
+        - name: type
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/VaultItemType'
+          example: PASSWORD
+      responses:
+        "200":
+          description: Ordered array of chat messages (may be empty).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatMessageResponse'
+              example:
+                - id: aaa-111
+                  userId: user-1716048000000
+                  content: "Save my Netflix password, it's Sup3rS3cret!"
+                  role: USER
+                  categoryContext: PERSONAL
+                  typeContext: PASSWORD
+                  createdAt: "2026-05-14T10:00:00.000Z"
+                - id: bbb-222
+                  userId: user-1716048000000
+                  content: "Done! I've securely saved your Netflix Password."
+                  role: AI
+                  categoryContext: PERSONAL
+                  typeContext: PASSWORD
+                  createdAt: "2026-05-14T10:00:01.000Z"
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+  /chat/formatted:
+    get:
+      tags: [Chat]
+      summary: Get formatted history (LLM-ready)
+      description: |
+        Returns the same conversation as `GET /chat` but already shaped for
+        direct use in an LLM messages array:
+
+        ```json
+        [{ "role": "user" | "assistant", "content": "..." }]
+        ```
+
+        - `USER` → `"user"`
+        - `AI`   → `"assistant"`
+
+        **Must be declared before `GET /chat/{id}` in the router** so Express
+        does not treat the literal string `"formatted"` as a dynamic `:id` param.
+        Used internally by `VaultAiService`; also useful for debugging.
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+          example: user-1716048000000
+        - name: category
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/VaultCategory'
+          example: PERSONAL
+        - name: type
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/VaultItemType'
+          example: PASSWORD
+      responses:
+        "200":
+          description: LLM-ready message array.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FormattedHistoryItem'
+              example:
+                - role: user
+                  content: "Save my Netflix password, it's Sup3rS3cret!"
+                - role: assistant
+                  content: "Done! I've securely saved your Netflix Password."
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # AI
+  # ════════════════════════════════════════════════════════════════════════════
+
+  /ai/ask:
+    post:
+      tags: [AI]
+      summary: Ask the AI assistant
+      description: |
+        The main chat endpoint. One call handles an entire AI exchange:
+
+        1. Loads existing vault items for `(userId, category, type)`.
+        2. Loads conversation history for the same context.
+        3. Sends a context-aware system prompt + history + `message` to Gemini.
+        4. Parses the JSON response and executes the detected intent:
+           - `save`     → creates a new vault item
+           - `retrieve` → returns content from vault (no DB write)
+           - `update`   → updates an existing vault item
+           - `delete`   → deletes a vault item and clears chat history
+           - `other`    → returns a conversational reply
+        5. Persists both the user turn and AI reply to the chat log.
+        6. Returns the human-readable `reply`.
+
+        **action values:**
+        | action | UI button | System prompt focus |
+        |--------|-----------|---------------------|
+        | `save` | New Vault | Extracting label + content to store |
+        | `retrieve` | My Vault | Querying, updating or deleting existing items |
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAskRequest'
+            examples:
+              savePassword:
+                summary: Save a password
+                value:
+                  userId: user-1716048000000
+                  category: PERSONAL
+                  type: PASSWORD
+                  action: save
+                  message: "Save my Netflix password, it's Sup3rS3cret!"
+              saveCommand:
+                summary: Save a CLI command
+                value:
+                  userId: user-1716048000000
+                  category: WORK
+                  type: COMMAND
+                  action: save
+                  message: "Remember this: docker system prune -af --volumes"
+              retrieveAll:
+                summary: List all saved passwords
+                value:
+                  userId: user-1716048000000
+                  category: PERSONAL
+                  type: PASSWORD
+                  action: retrieve
+                  message: "Show me all my passwords"
+              retrieveOne:
+                summary: Get a specific item
+                value:
+                  userId: user-1716048000000
+                  category: PERSONAL
+                  type: PASSWORD
+                  action: retrieve
+                  message: "What's my Netflix password?"
+              updateItem:
+                summary: Update an existing item (in retrieve mode)
+                value:
+                  userId: user-1716048000000
+                  category: PERSONAL
+                  type: PASSWORD
+                  action: retrieve
+                  message: "Update my Netflix Password, the new one is NewP4ss!"
+              deleteItem:
+                summary: Delete an item (in retrieve mode)
+                value:
+                  userId: user-1716048000000
+                  category: PERSONAL
+                  type: PASSWORD
+                  action: retrieve
+                  message: "Delete my Netflix Password, I don't need it anymore"
+      responses:
+        "200":
+          description: AI reply returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiAskResponse'
+              examples:
+                saved:
+                  summary: Item was saved
+                  value:
+                    reply: "Done! I've securely saved your Netflix Password."
+                retrieved:
+                  summary: Item was retrieved
+                  value:
+                    reply: "Your Netflix Password is: Sup3rS3cret!"
+                updated:
+                  summary: Item was updated
+                  value:
+                    reply: "Got it! Your Netflix Password has been updated securely."
+                deleted:
+                  summary: Item was deleted
+                  value:
+                    reply: "Done! I've deleted your Netflix Password from the vault."
+                notFound:
+                  summary: Item not found in vault
+                  value:
+                    reply: "I couldn't find that. Did you mean one of: [Spotify Password, Gmail Password]?"
+                other:
+                  summary: Greeting or unclear request
+                  value:
+                    reply: "Hi! What would you like to save? Please provide the label and the content."
+        "400":
+          description: |
+            Missing or invalid fields. Common causes:
+            - `userId`, `category`, `type`, `action`, or `message` is absent.
+            - `category` is not one of `PERSONAL`, `WORK`, `NOTES`.
+            - `type` is not one of `PASSWORD`, `CODE`, `COMMAND`, `NOTE`.
+            - `action` is not `save` or `retrieve`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingMessage:
+                  value:
+                    error: Bad Request Exception
+                    message: "userId, category, type, action, and message are required"
+                    details:
+                      MessageMissing: true
+                invalidCategory:
+                  value:
+                    error: Bad Request Exception
+                    message: 'Invalid category: "FINANCE". Must be one of: PERSONAL, WORK, NOTES'
+                invalidAction:
+                  value:
+                    error: Bad Request Exception
+                    message: 'Invalid action: "query". Must be "save" or "retrieve".'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'

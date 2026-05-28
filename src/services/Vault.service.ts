@@ -21,7 +21,27 @@ export class VaultService {
     ? Buffer.from(config.encryption.secretKey, "hex")
     : crypto.randomBytes(32);
 
-    constructor(private readonly vaultRepository: IVaultRepository) {}
+    constructor(private readonly vaultRepository: IVaultRepository) {
+        
+       if (!config.encryption.secretKey) {
+            throw new Error(
+                "ENCRYPTION_SECRET is not set. " +
+                "Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\" " +
+                "and add it to your .env file."
+            );
+        }
+
+        const keyBuffer = Buffer.from(config.encryption.secretKey, "hex");
+
+        if (keyBuffer.length !== 32) {
+            throw new Error(
+                `ENCRYPTION_SECRET must decode to exactly 32 bytes for AES-256. ` +
+                `Got ${keyBuffer.length} bytes. Re-generate it.`
+            );
+        }
+
+        this.secretKey = keyBuffer;
+    }
 
     /**
      * Creates a new vault item, encrypting content if present.
@@ -140,17 +160,14 @@ const cipher = crypto.createCipheriv(this.algorithm, this.secretKey, iv);
      * AES Decryption logic. Populates the content field from the encrypted value.
      */
     private decryptItemContent(item: identifierVaultItem): void {
-        try {
-            const iv = Buffer.from(item.getEncryptionIv(), "hex");
-const decipher = crypto.createDecipheriv(this.algorithm, this.secretKey, iv);
-            
-            let decrypted = decipher.update(item.getEncryptedValue(), "hex", "utf8");
-            decrypted += decipher.final("utf8");
+        const iv = Buffer.from(item.getEncryptionIv(), "hex");
+    const decipher = crypto.createDecipheriv(this.algorithm, this.secretKey, iv);
 
-            item.setContent(decrypted);
-        } catch (error) {
-            // Handle cases where decryption might fail (e.g., wrong key/corrupt data)
-            item.setContent("[DECRYPTION_FAILED]");
-        }
-    }
+    let decrypted = decipher.update(item.getEncryptedValue(), "hex", "utf8");
+    decrypted += decipher.final("utf8");
+
+    item.setContent(decrypted);
+}
+
+
 }
