@@ -7,8 +7,13 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   message: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
 }
-
 export interface RegisterRequest {
   name:     string;
   email:    string;

@@ -26,7 +26,15 @@ export class AuthController {
         const payload: userPayload = { userId: user.id, role: toRole(user.role) };
         this.authService.PersistAuthentication(res, payload);
 
-        res.status(200).json({ message: "Login successful" });
+res.status(200).json({
+    message: "Login successful",
+    user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+    },
+});
     }
 
     public async logout(_req: Request, res: Response) {

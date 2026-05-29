@@ -48,15 +48,18 @@ export function useAuth(): UseAuthReturn {
   const handleLogin = useCallback(async (payload: LoginRequest) => {
     setLoading(true);
     try {
-      await login(payload);
-      // Cookie is set by the browser automatically — no token to store.
-      // In production you'd call /api/v1/users/me here to get the user object.
-      // For now we derive a minimal user from the email so the UI can show it.
-      setState({
-        user:    { id: '', name: payload.email, email: payload.email, role: 'user' },
-        loading: false,
-        error:   null,
-      });
+      const response = await login(payload);
+
+setState({
+  user: {
+    id: response.user.id,
+    name: response.user.name,
+    email: response.user.email,
+    role: response.user.role,
+  },
+  loading: false,
+  error: null,
+});
     } catch (err) {
       setError(err instanceof ApiException ? err.message : 'Login failed');
       throw err;
