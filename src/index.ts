@@ -21,10 +21,13 @@ app.use(helmet());
 // In production, replace the origin with your actual domain.
 app.use(
   cors({
-    origin:      config.isProduction ? process.env.FRONTEND_URL : "http://localhost:5173",
-    credentials: true, // required so the browser sends the httpOnly auth cookie
+    origin: config.isProduction
+      ? process.env.FRONTEND_URL
+      : /^http:\/\/localhost:\d+$/,   // allows ANY localhost port in dev
+    credentials: true,
   })
 );
+
 
 // ── Body parsing ──────────────────────────────────────────────────────────────
 app.use(express.json());
