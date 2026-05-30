@@ -8,6 +8,19 @@ import routes from "./routes/Index.route";
 import requestLogger from "./middleware/reQuesthAndler";
 import { globalErrorHandler } from "./middleware/errrorHandler";
 import logger from "./util/logger";
+import { chatRepository, vaultRepository, userRepository } from "./repository/PostgreSql/repositories";
+// Initialize all repositories once before starting
+async function bootstrap() {
+  await userRepository.init();
+  await vaultRepository.init();
+  await chatRepository.init();
+app.listen(config.port, () => {
+    logger.info(`VaultMind API running on port ${config.port} in ${config.NODE_ENV} mode`);
+  });
+}
+
+bootstrap();
+
 
 const app = express();
 

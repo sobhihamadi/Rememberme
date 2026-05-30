@@ -12,13 +12,11 @@ import { Authentication } from "../middleware/auth";
 import { hasPermission } from "../middleware/authorize";
 import { permissions } from "../config/roles";
 import config from "../config";
+import { chatRepository, vaultRepository } from "../repository/PostgreSql/repositories";
 
 // ── Dependency wiring ─────────────────────────────────────────────────────────
 
-const chatRepository  = new ChatRepositoryPostgre();
-const vaultRepository = new VaultRepositoryPostgre();
-chatRepository.init();
-vaultRepository.init();
+
 
 const chatService  = new ChatService(chatRepository);
 const vaultService = new VaultService(vaultRepository);

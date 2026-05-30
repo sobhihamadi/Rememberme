@@ -6,11 +6,11 @@ import { asyncHandler } from "../middleware/AsyncHandler";
 import { Authentication } from "../middleware/auth";
 import { hasPermission } from "../middleware/authorize";
 import { permissions } from "../config/roles";
+import { chatRepository } from "../repository/PostgreSql/repositories";
 
 // ── Dependency wiring ─────────────────────────────────────────────────────────
 
-const chatRepository = new ChatRepositoryPostgre();
-chatRepository.init();
+
 
 const chatService    = new ChatService(chatRepository);
 const chatController = new ChatController(chatService);

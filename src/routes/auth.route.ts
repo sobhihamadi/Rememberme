@@ -4,11 +4,10 @@ import { asyncHandler } from "../middleware/AsyncHandler";
 import { UserPostgreSQLRepository } from "../repository/PostgreSql/UserRepository";
 import { AuthenticationService } from "../services/authentication.service";
 import { UserService } from "../services/user.service";
+import { userRepository } from "../repository/PostgreSql/repositories";
 
 // ── Dependency wiring ─────────────────────────────────────────────────────────
 
-const userRepository = new UserPostgreSQLRepository();
-userRepository.init(); // fire-and-forget — DB handles the async safely
 
 const userService   = new UserService(userRepository);
 const authService   = new AuthenticationService();

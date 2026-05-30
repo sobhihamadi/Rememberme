@@ -6,11 +6,10 @@ import { Authentication } from "../middleware/auth";
 import { hasPermission } from "../middleware/authorize";
 import { VaultRepositoryPostgre } from "../repository/PostgreSql/VaultRepositoryPostgre";
 import { VaultService } from "../services/Vault.service";
+import { vaultRepository } from "../repository/PostgreSql/repositories";
 
 // ── Dependency wiring ─────────────────────────────────────────────────────────
 
-const vaultRepository = new VaultRepositoryPostgre();
-vaultRepository.init();
 
 const vaultService    = new VaultService(vaultRepository);
 const vaultController = new VaultController(vaultService);
