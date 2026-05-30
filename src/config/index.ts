@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import path from "path";
 import type { StringValue } from "ms";
 
-dotenv.config({ path: path.join(__dirname, "../../.env") });
+dotenv.config({path:path.join(__dirname,`../../.env.${process.env.NODE_ENV}`)}); // Load environment variables from .env file
 
 export default {
   NODE_ENV:     process.env.NODE_ENV || "development",
