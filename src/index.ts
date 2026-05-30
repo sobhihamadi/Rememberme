@@ -19,15 +19,12 @@ app.use(helmet());
 // ── CORS ──────────────────────────────────────────────────────────────────────
 // Allows the React frontend (running on a different port/domain) to call the API.
 // In production, replace the origin with your actual domain.
-app.use(
-  cors({
-    origin: config.isProduction
-      ? process.env.FRONTEND_URL
-      : /^http:\/\/localhost:\d+$/,   // allows ANY localhost port in dev
-    credentials: true,
-  })
-);
-
+app.use(cors({
+  origin: config.isProduction
+    ? process.env.FRONTEND_URL          // your Render static site URL
+    : /^http:\/\/localhost:\d+$/,       // any localhost port in dev
+  credentials: true,
+}));
 
 // ── Body parsing ──────────────────────────────────────────────────────────────
 app.use(express.json());
