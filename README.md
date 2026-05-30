@@ -1,0 +1,2 @@
+**VaultMind**
+A full-stack encrypted password/secrets manager with a React+TypeScript frontend and an Express+PostgreSQL backend. Users authenticate via JWT httpOnly cookies, then interact with an AI assistant (Gemini) through a chat interface to save, retrieve, update, and delete vault items — passwords, code snippets, commands, and notes — which are AES-256-CBC encrypted at rest. The architecture follows clean separation: controllers → services → repositories → PostgreSQL, with RBAC middleware guarding every route.
