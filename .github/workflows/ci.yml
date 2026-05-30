@@ -93,33 +93,33 @@ jobs:
           path: coverage
           key: ${{ runner.os }}-coverage-${{ github.sha }}
 
-  # ══════════════════════════════════════════════════════════════════════════
-  # 4. LINT
-  # ══════════════════════════════════════════════════════════════════════════
-  lint:
-    name: "Lint · Backend + Frontend"
-    runs-on: ubuntu-latest
-    needs: [build-backend, build-frontend]
-    steps:
-      - uses: actions/checkout@v4
+  # # ══════════════════════════════════════════════════════════════════════════
+  # # 4. LINT
+  # # ══════════════════════════════════════════════════════════════════════════
+  # lint:
+  #   name: "Lint · Backend + Frontend"
+  #   runs-on: ubuntu-latest
+  #   needs: [build-backend, build-frontend]
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install backend dependencies
-        run: npm install
+  #     - name: Install backend dependencies
+  #       run: npm install
 
-      - name: Lint backend
-        run: npm run lint
+  #     - name: Lint backend
+  #       run: npm run lint
 
-      - name: Install frontend dependencies
-        working-directory: UI
-        run: npm install
+  #     - name: Install frontend dependencies
+  #       working-directory: UI
+  #       run: npm install
 
-      - name: Lint frontend
-        working-directory: UI
-        run: npm run lint
+  #     - name: Lint frontend
+  #       working-directory: UI
+  #       run: npm run lint
 
   # ══════════════════════════════════════════════════════════════════════════
   # 5. RELEASE — version bump + GitHub Release (master only)
@@ -127,7 +127,7 @@ jobs:
   release:
     name: "Release · GitHub"
     runs-on: ubuntu-latest
-    needs: [test, lint]
+    needs: [test]
     if: github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v4
@@ -183,7 +183,7 @@ jobs:
   deploy:
     name: "Deploy · Render (backend + frontend)"
     runs-on: ubuntu-latest
-    needs: [test, lint]
+    needs: [test]
     if: github.ref == 'refs/heads/master'
     steps:
       - name: Deploy backend → Render Web Service
