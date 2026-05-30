@@ -86,7 +86,7 @@ setState({
     try {
       const user = await register(payload);
       setState({
-        user:    { id: user.id, name: user.name, email: user.email, role: user.role },
+        user: null,
         loading: false,
         error:   null,
       });
