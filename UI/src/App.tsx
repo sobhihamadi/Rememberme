@@ -135,9 +135,8 @@ function LoginScreen({
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
-function Dashboard({ userId, userName, onLogout }: {
+function Dashboard({ userId, onLogout }: {
   userId:   string;
-  userName: string;
   onLogout: () => void;
 }) {
   const [activeCategory, setActiveCategory] = useState<VaultCategory>('Work');
@@ -272,7 +271,6 @@ export default function App() {
   return (
     <Dashboard
       userId={user.id}
-      userName={user.name}
       onLogout={logout}
     />
   );

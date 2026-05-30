@@ -1,8 +1,15 @@
-import dotenv from "dotenv";
 import path from "path";
 import type { StringValue } from "ms";
 
-dotenv.config({path:path.join(__dirname,`../../.env.${process.env.NODE_ENV}`)}); // Load environment variables from .env file
+// Only load .env file locally — CI and Render inject env vars directly.
+if (process.env.NODE_ENV !== "production") {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const dotenv = require("dotenv");
+  // Loads plain ".env" — works whether NODE_ENV is "development", "test", or unset
+  dotenv.config({
+    path: path.join(__dirname, "../../.env"),
+  });
+}
 
 export default {
   NODE_ENV:     process.env.NODE_ENV || "development",
@@ -15,27 +22,20 @@ export default {
 
   storagePath: {
     postgres: {
-      // WARNING: never commit a real connection string as a fallback in production.
-      // The fallback here is only for local development convenience.
-      // In production (DigitalOcean + PM2), DATABASE_URL must be set in the .env file.
-      url:
-        process.env.DATABASE_URL ||""    },
+      url: process.env.DATABASE_URL || "",
+    },
   },
 
   auth: {
-    secretkey:           process.env.JWT_SECRET_KEY    || "secret-111222242421",
-    tokenExpiry:        (process.env.TOKEN_EXPIRY       || "15m") as StringValue,
-    tokenrefrechExpiry: (process.env.TOKEN_REFRECH_EXPIRY || "7d") as StringValue,
+    secretkey:           process.env.JWT_SECRET_KEY         || "",
+    tokenExpiry:        (process.env.TOKEN_EXPIRY           || "15m") as StringValue,
+    tokenrefrechExpiry: (process.env.TOKEN_REFRECH_EXPIRY   || "7d")  as StringValue,
   },
 
   encryption: {
-    // Used by VaultService for AES-256-CBC encryption of vault item content.
-    // Must be exactly 32 bytes when decoded. Generate with:
-    //   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
     secretKey: process.env.ENCRYPTION_SECRET || "",
   },
 
-  // Used by the AI service to call the gemini API (Gemini).
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || "",
   },

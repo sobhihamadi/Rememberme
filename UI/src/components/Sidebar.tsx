@@ -1,4 +1,3 @@
-import React from 'react';
 
 // These perfectly match your backend enums
 export type VaultCategory = 'Personal' | 'Work' | 'Notes';

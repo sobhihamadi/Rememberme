@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { getChatHistory, createChatMessage } from '../api/Api.chat';
+import { getChatHistory } from '../api/Api.chat';
 import { askAi } from '../api/Api.ai';
 import {
   type ChatMessageResponse,
