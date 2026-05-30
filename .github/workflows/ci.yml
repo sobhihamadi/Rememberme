@@ -21,15 +21,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_BACKEND }}
+
       - name: Install dependencies
         run: npm install
+
       - name: Transpile TypeScript
         env:
           NODE_ENV: production
         run: npm run build
+
       - name: Cache build output
         uses: actions/cache@v4
         with:
@@ -44,17 +48,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_FRONTEND }}
+
       - name: Install frontend dependencies
         working-directory: UI
         run: npm install
+
       - name: Build Vite app
         working-directory: UI
         env:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
         run: npm run build
+
       - name: Cache dist output
         uses: actions/cache@v4
         with:
@@ -62,91 +70,41 @@ jobs:
           key: ${{ runner.os }}-frontend-${{ github.sha }}
 
   # ══════════════════════════════════════════════════════════════════════════
-  # 3. TEST
-  # NODE_ENV=test → config skips dotenv → vars injected via env: block below
-  # ══════════════════════════════════════════════════════════════════════════
-  # test:
-  #   name: "Test · Backend"
-  #   runs-on: ubuntu-latest
-  #   needs: build-backend
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: ${{ env.NODE_BACKEND }}
-  #     - name: Install dependencies
-  #       run: npm install
-  #     - name: Run tests
-  #       env:
-  #         NODE_ENV: test
-  #         PORT: "3000"
-  #         DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
-  #         JWT_SECRET_KEY: "ci-test-secret-not-real-padding-padding-padding"
-  #         TOKEN_EXPIRY: "15m"
-  #         TOKEN_REFRECH_EXPIRY: "7d"
-  #         ENCRYPTION_SECRET: "0000000000000000000000000000000000000000000000000000000000000000"
-  #         GEMINI_API_KEY: "dummy"
-  #       run: npm run test
-  #     - name: Cache coverage
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: coverage
-  #         key: ${{ runner.os }}-coverage-${{ github.sha }}
-
-  # ══════════════════════════════════════════════════════════════════════════
-  # 4. LINT
-  # ══════════════════════════════════════════════════════════════════════════
-  # lint:
-  #   name: "Lint · Backend + Frontend"
-  #   runs-on: ubuntu-latest
-  #   needs: [build-backend, build-frontend]
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: ${{ env.NODE_BACKEND }}
-  #     - name: Install backend dependencies
-  #       run: npm install
-  #     - name: Lint backend
-  #       run: npm run lint
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: ${{ env.NODE_FRONTEND }}
-  #     - name: Install frontend dependencies
-  #       working-directory: UI
-  #       run: npm install
-  #     - name: Lint frontend
-  #       working-directory: UI
-  #       run: npm run lint
-
-  # ══════════════════════════════════════════════════════════════════════════
-  # 5. RELEASE (master only)
+  # 3. RELEASE — version bump + GitHub Release (master only)
   # ══════════════════════════════════════════════════════════════════════════
   release:
     name: "Release · GitHub"
     runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend]
     if: github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_BACKEND }}
+
       - name: Build backend
         env:
           NODE_ENV: production
         run: npm install && npm run build
+
       - name: Package backend artifact
         run: cd build && zip -r ../backend-artifact.zip .
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_FRONTEND }}
+
       - name: Build frontend
         working-directory: UI
         env:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
         run: npm install && npm run build
+
       - name: Package frontend artifact
         run: cd UI/dist && zip -r ../../frontend-artifact.zip .
+
       - name: Bump version
         id: version
         uses: phips28/gh-action-bump-version@master
@@ -157,6 +115,7 @@ jobs:
           minor-wording:  "minor"
           patch-wording:  "patch,fixes"
           commit-message: "CI: Bump Version to {{version}} [skip ci]"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -171,17 +130,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ══════════════════════════════════════════════════════════════════════════
-  # 6. DEPLOY → Render (master only)
+  # 4. DEPLOY → Render (master only)
   # ══════════════════════════════════════════════════════════════════════════
   deploy:
     name: "Deploy · Render"
     runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend]
     if: github.ref == 'refs/heads/master'
     steps:
       - name: Deploy backend → Render Web Service
         run: |
           curl -s --fail -X POST "${{ secrets.RENDER_BACKEND_HOOK }}" \
             -o /dev/null -w "Backend — HTTP %{http_code}\n"
+
       - name: Deploy frontend → Render Static Site
         run: |
           curl -s --fail -X POST "${{ secrets.RENDER_FRONTEND_HOOK }}" \
