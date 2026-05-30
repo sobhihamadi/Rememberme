@@ -1,7 +1,6 @@
 import config from "../../config";
 import { Pool } from "pg";
 import { DatabaseConnectionException } from "../../util/exceptions/DatabaseConnectionException"; // ← capital E
-import "dotenv/config";
 
 export class ConnectionManager {
   private constructor() {}
