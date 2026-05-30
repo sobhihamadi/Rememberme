@@ -49,23 +49,23 @@ export class AuthenticationService {
 
   // ── Cookie helpers ──────────────────────────────────────────────────────────
 
-  SetTokenIntoCookie(res: Response, token: string): void {
-    res.cookie(ACCESS_COOKIE_NAME, token, {
-      httpOnly: true,
-      secure:   config.isProduction,
-      sameSite: "strict",
-      maxAge:   ms(this.tokenExpiry),
-    });
-  }
+SetTokenIntoCookie(res: Response, token: string): void {
+  res.cookie(ACCESS_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure:   config.isProduction,
+    sameSite: config.isProduction ? "none" : "strict",
+    maxAge:   ms(this.tokenExpiry),
+  });
+}
 
-  SetRefreshTokenIntoCookie(res: Response, refreshToken: string): void {
-    res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
-      httpOnly: true,
-      secure:   config.isProduction,
-      sameSite: "strict",
-      maxAge:   ms(this.tokenRefreshExpiry),
-    });
-  }
+SetRefreshTokenIntoCookie(res: Response, refreshToken: string): void {
+  res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
+    httpOnly: true,
+    secure:   config.isProduction,
+    sameSite: config.isProduction ? "none" : "strict",
+    maxAge:   ms(this.tokenRefreshExpiry),
+  });
+}
 
   /**
    * Clears BOTH cookies.
@@ -73,10 +73,15 @@ export class AuthenticationService {
    * clear — meaning logout never actually removed the refresh cookie.
    * Both now use the REFRESH_COOKIE_NAME constant.
    */
-  clearToken(res: Response): void {
-    res.clearCookie(ACCESS_COOKIE_NAME);
-    res.clearCookie(REFRESH_COOKIE_NAME);
-  }
+ clearToken(res: Response): void {
+  const options = {
+    httpOnly: true,
+    secure:   config.isProduction,
+    sameSite: config.isProduction ? "none" as const : "strict" as const,
+  };
+  res.clearCookie(ACCESS_COOKIE_NAME, options);
+  res.clearCookie(REFRESH_COOKIE_NAME, options);
+}
 
   // ── Combined helpers ────────────────────────────────────────────────────────
 
