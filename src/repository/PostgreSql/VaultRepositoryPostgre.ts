@@ -53,7 +53,8 @@ export class VaultRepositoryPostgre implements IRepository<identifierVaultItem>,
         const conn = await ConnectionManager.getPostgreConnection();
         const query = `SELECT * FROM vault_items WHERE "userId" = $1 AND "category" = $2 AND "type" = $3 ORDER BY "updatedAt" DESC`;
         const result = await conn.query<IVaultRow>(query, [userId, category, type]);
-        return result.rows.map(row => this.mapper.map(row));
+        return result.rows.map((row: IVaultRow) => this.mapper.map(row));
+
     }
 
     async get(id: ID): Promise<identifierVaultItem> {

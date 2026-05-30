@@ -60,7 +60,7 @@ export class ChatRepositoryPostgre implements IChatRepository {
              ORDER BY "createdAt" ASC`,
             [userId, category, type]
         );
-        return result.rows.map((row) => this.mapper.map(row));
+        return result.rows.map((row: IChatRow) => this.mapper.map(row));
     }
 
     async deleteByContext(
