@@ -27,7 +27,7 @@ jobs:
           node-version: ${{ env.NODE_BACKEND }}
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --include=dev 
 
       - name: Transpile TypeScript
         env:
@@ -87,7 +87,7 @@ jobs:
       - name: Build backend
         env:
           NODE_ENV: production
-        run: npm install && npm run build
+        run: npm install --include=dev && npm run build
 
       - name: Package backend artifact
         run: cd build && zip -r ../backend-artifact.zip .
