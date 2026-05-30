@@ -7,18 +7,12 @@ import { IChatRepository } from "../repository/Ichatrepository";
 export class ChatService {
     constructor(private readonly chatRepository: IChatRepository) {}
 
-    /**
-     * Appends a new message (user turn or AI turn) to the conversation log.
-     */
     public async createMessage(message: IdentifierChatMessage): Promise<IdentifierChatMessage> {
         this.validateMessage(message);
         await this.chatRepository.create(message);
         return message;
     }
 
-    /**
-     * Retrieves the full ordered conversation history for a vault context.
-     */
     public async getChatContext(
         userId: string,
         category: VaultCategory,
@@ -28,28 +22,18 @@ export class ChatService {
         return this.chatRepository.getHistory(userId, category, type);
     }
 
-    /**
-     * Returns history already shaped for the Claude API messages array:
-     * [{ role: "user" | "assistant", content: string }, ...]
-     * The AI layer calls this before constructing its API request.
-     */
     public async constructSystemPromptAndHistory(
         userId: string,
         category: VaultCategory,
         type: VaultItemType
     ): Promise<{ role: "user" | "assistant"; content: string }[]> {
         const history = await this.getChatContext(userId, category, type);
-
         return history.map((msg) => ({
             role: msg.getRole() === ChatRole.AI ? "assistant" : "user",
             content: msg.getContent(),
         }));
     }
 
-    /**
-     * Wipes the entire conversation log for a vault context.
-     * Called by VaultService.deleteVaultItem — NOT exposed as an API endpoint.
-     */
     public async clearHistory(
         userId: string,
         category: VaultCategory,
@@ -62,16 +46,23 @@ export class ChatService {
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private validateMessage(message: IdentifierChatMessage): void {
-        if (!message.getUserId() || !message.getContent() || !message.getRole()) {
-            throw new BadRequestException("userId, content, and role are required", {
-                UserNotDefined:  !message.getUserId(),
-                ContentEmpty:    !message.getContent(),
-                RoleNotDefined:  !message.getRole(),
-            });
-        }
+        const userId  = message.getUserId();
+        const content = message.getContent();
+        const role    = message.getRole();
 
-        if (!Object.values(ChatRole).includes(message.getRole())) {
-            throw new BadRequestException(`Invalid role: ${message.getRole()}`);
+        // Explicit checks — guards against undefined/null/empty string
+        // and also against mock functions (truthy but not a valid string value)
+        const userIdMissing  = !userId  || typeof userId  !== "string";
+        const contentMissing = !content || typeof content !== "string";
+        // Role must be exactly one of the enum values
+        const roleMissing    = !role || !Object.values(ChatRole).includes(role as ChatRole);
+
+        if (userIdMissing || contentMissing || roleMissing) {
+            throw new BadRequestException("userId, content, and role are required", {
+                UserNotDefined:  userIdMissing,
+                ContentEmpty:    contentMissing,
+                RoleNotDefined:  roleMissing,
+            });
         }
     }
 

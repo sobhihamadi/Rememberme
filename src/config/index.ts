@@ -1,12 +1,11 @@
 import path from "path";
 import type { StringValue } from "ms";
 
-// Only load .env file locally — CI and Render inject env vars directly.
-if (process.env.NODE_ENV !== "production") {
+// Load .env only in development — CI sets NODE_ENV=test and injects vars
+// directly via the workflow, production uses platform env vars (Render).
+if (process.env.NODE_ENV === "development") {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const dotenv = require("dotenv");
-  // Loads plain ".env" — works whether NODE_ENV is "development", "test", or unset
-  dotenv.config({
+  require("dotenv").config({
     path: path.join(__dirname, "../../.env"),
   });
 }
@@ -27,9 +26,9 @@ export default {
   },
 
   auth: {
-    secretkey:           process.env.JWT_SECRET_KEY         || "",
-    tokenExpiry:        (process.env.TOKEN_EXPIRY           || "15m") as StringValue,
-    tokenrefrechExpiry: (process.env.TOKEN_REFRECH_EXPIRY   || "7d")  as StringValue,
+    secretkey:           process.env.JWT_SECRET_KEY        || "",
+    tokenExpiry:        (process.env.TOKEN_EXPIRY          || "15m") as StringValue,
+    tokenrefrechExpiry: (process.env.TOKEN_REFRECH_EXPIRY  || "7d")  as StringValue,
   },
 
   encryption: {
