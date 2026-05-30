@@ -43,22 +43,25 @@ export class ChatService {
         await this.chatRepository.deleteByContext(userId, category, type);
     }
 
+    // ── Private helpers ───────────────────────────────────────────────────────
+
     private validateMessage(message: IdentifierChatMessage): void {
         const userId  = message.getUserId();
         const content = message.getContent();
         const role    = message.getRole();
 
-        const userIdMissing  = typeof userId  !== "string" || userId.trim()  === "";
-        const contentMissing = typeof content !== "string" || content.trim() === "";
-        // role must be a string AND one of the known enum values
-        const roleMissing    = typeof role !== "string" ||
-                               !Object.values(ChatRole).includes(role as ChatRole);
+        // Explicit checks — guards against undefined/null/empty string
+        // and also against mock functions (truthy but not a valid string value)
+        const userIdMissing  = !userId  || typeof userId  !== "string";
+        const contentMissing = !content || typeof content !== "string";
+        // Role must be exactly one of the enum values
+        const roleMissing    = !role || !Object.values(ChatRole).includes(role as ChatRole);
 
         if (userIdMissing || contentMissing || roleMissing) {
             throw new BadRequestException("userId, content, and role are required", {
-                UserNotDefined: userIdMissing,
-                ContentEmpty:   contentMissing,
-                RoleNotDefined: roleMissing,
+                UserNotDefined:  userIdMissing,
+                ContentEmpty:    contentMissing,
+                RoleNotDefined:  roleMissing,
             });
         }
     }
