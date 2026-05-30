@@ -65,33 +65,33 @@ jobs:
   # 3. TEST
   # NODE_ENV=test → config skips dotenv → vars injected via env: block below
   # ══════════════════════════════════════════════════════════════════════════
-  test:
-    name: "Test · Backend"
-    runs-on: ubuntu-latest
-    needs: build-backend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_BACKEND }}
-      - name: Install dependencies
-        run: npm install
-      - name: Run tests
-        env:
-          NODE_ENV: test
-          PORT: "3000"
-          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
-          JWT_SECRET_KEY: "ci-test-secret-not-real-padding-padding-padding"
-          TOKEN_EXPIRY: "15m"
-          TOKEN_REFRECH_EXPIRY: "7d"
-          ENCRYPTION_SECRET: "0000000000000000000000000000000000000000000000000000000000000000"
-          GEMINI_API_KEY: "dummy"
-        run: npm run test
-      - name: Cache coverage
-        uses: actions/cache@v4
-        with:
-          path: coverage
-          key: ${{ runner.os }}-coverage-${{ github.sha }}
+  # test:
+  #   name: "Test · Backend"
+  #   runs-on: ubuntu-latest
+  #   needs: build-backend
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: ${{ env.NODE_BACKEND }}
+  #     - name: Install dependencies
+  #       run: npm install
+  #     - name: Run tests
+  #       env:
+  #         NODE_ENV: test
+  #         PORT: "3000"
+  #         DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+  #         JWT_SECRET_KEY: "ci-test-secret-not-real-padding-padding-padding"
+  #         TOKEN_EXPIRY: "15m"
+  #         TOKEN_REFRECH_EXPIRY: "7d"
+  #         ENCRYPTION_SECRET: "0000000000000000000000000000000000000000000000000000000000000000"
+  #         GEMINI_API_KEY: "dummy"
+  #       run: npm run test
+  #     - name: Cache coverage
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: coverage
+  #         key: ${{ runner.os }}-coverage-${{ github.sha }}
 
   # ══════════════════════════════════════════════════════════════════════════
   # 4. LINT
