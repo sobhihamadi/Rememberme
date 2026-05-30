@@ -197,3 +197,136 @@
 .vm-stat-label { font-size: 11px; color: #aaa; font-weight: 400; margin-bottom: 3px; }
 .vm-stat-value { font-size: 20px; font-weight: 500; color: #1A1A1A; font-family: 'Lora', serif; }
 .vm-stat-sub { font-size: 10px; color: #B8D4A8; margin-top: 1px; }
+/* ── Mobile sidebar toggle button ────────────────────────────────────────── */
+.vm-sidebar-toggle {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 20px;
+  color: #1B4D6E;
+  line-height: 1;
+}
+
+/* ── Sidebar overlay (mobile only) ───────────────────────────────────────── */
+.vm-sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 40;
+}
+
+/* ── Mobile breakpoint ───────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* Show the hamburger button */
+  .vm-sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Show overlay when sidebar open */
+  .vm-sidebar-overlay {
+    display: block;
+  }
+
+  /* Sidebar: off-screen by default, slides in when open */
+  .vm-sidebar {
+    position: fixed;
+    top: 52px; /* below topbar */
+    left: 0;
+    height: calc(100vh - 52px);
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: none;
+  }
+
+  .vm-sidebar--open {
+    transform: translateX(0);
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.12);
+  }
+
+  /* Main content takes full width on mobile */
+  .vm-body {
+    flex-direction: column;
+  }
+
+  .vm-main {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Stack content vertically on mobile (vault list + chat) */
+  .vm-content {
+    flex-direction: column;
+  }
+
+  /* Chat panel full width on mobile */
+  .vm-chat-panel {
+    width: 100%;
+    border-left: none;
+    border-top: 0.5px solid #E8E4DC;
+    min-height: 420px;
+  }
+
+  /* Stats row: 2 cards max, wrap */
+  .vm-stats-row {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 12px 12px;
+  }
+
+  .vm-stat-card {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 120px;
+  }
+
+  /* Tighten main header on mobile */
+  .vm-main-header {
+    padding: 14px 14px 12px;
+    gap: 10px;
+  }
+
+  .vm-page-title {
+    font-size: 18px;
+  }
+
+  .vm-btn-primary {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  /* Tabs scroll horizontally if needed */
+  .vm-tabs {
+    padding: 0 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .vm-tabs::-webkit-scrollbar { display: none; }
+
+  /* Vault list padding */
+  .vm-vault-list {
+    padding: 14px;
+  }
+
+  /* Topbar: keep tight */
+  .vm-topbar {
+    padding: 0 14px;
+  }
+}
+
+/* ── Very small screens ──────────────────────────────────────────────────── */
+@media (max-width: 400px) {
+  .vm-badge {
+    display: none;
+  }
+  .vm-stat-card {
+    flex: 1 1 100%;
+  }
+}
